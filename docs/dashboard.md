@@ -184,3 +184,30 @@ User flow: (1) visit OpenGEO Studio; (2) verify Turnstile once and scan a websit
 If an AI request fails after the receipt has been redeemed, the visitor must perform a new scan before retrying; this is intentional fail-closed protection against repeated paid inferences. Scans are limited to 3 per IP/day. Owner-key requests remain a separate protected mode.
 
 Cloudflare Turnstile tokens are single-use and expire after 5 minutes; the receipt is an OpenGEO-issued token created only after successful server verification and crawling. Do not confuse the two.
+
+
+## v0.8 — Personal-use verification, chosen icon, and truthful AI time display
+
+The new header and site favicon use the **second user-approved OpenGEO icon** (neon lime G/globe). The image is committed as Next.js `app/icon.png`.
+
+### Browser verification that doesn't keep reappearing
+
+In public mode, a visitor completes Cloudflare Turnstile **once per 2-hour browser session**. The backend verifies the Cloudflare response, then sets a short-lived `HttpOnly; Secure; SameSite=Lax` cookie that is HMAC signed and tied to the visitor's network address. The frontend immediately hides the widget after server verification. The cookie cannot be forged by setting React state or localStorage and expires after 2 hours. A new verification is required if the cookie expires, the IP changes, or the owner rotates the key.
+
+Existing Upstash Redis per-IP/global daily scan quotas and one-time AI receipts still apply. A verified cookie is **not** an unlimited scanning license. If Turnstile verification fails, the user receives an actionable error and can try again rather than seeing a confusing success panel with a blocked button.
+
+### Private use only (bypass Turnstile without weakening public API)
+
+If the app is personal and must NOT accept anonymous scans, set `OPEN_GEO_PUBLIC_ENABLED=false` in Vercel Production, redeploy, and use **Server access settings → OPEN_GEO_API_KEY** in the dashboard. The owner key bypasses CAPTCHA while server-side authorization, hostname restrictions, and owner cooldowns remain enforced. Never give the owner key to other users. If a public-access deployment is enabled, browser sessions + quotas protect the shared endpoint.
+
+### Fix Advisor
+
+Every deterministic issue displays an evidence-grounded **Confirm → Change → Verify** workflow plus a realistic expected technical outcome. The console also explains **Discover → Diagnose → Fix → Verify** and separates on-page technical readiness from unobserved Search Console indexing, search rankings, and AI answer citations.
+
+### AI loading time
+
+During a model request the UI shows a spinner, **elapsed wall-clock time** in mm:ss, and a non-guaranteed 10–45 second expectation (provider fallback or network delays can take longer). It never presents a fake remaining-time countdown or fake staged completion. When the response arrives, the UI shows the measured duration, provider and actual model. Analysis remains read-only, and can be copied via Copy AI Action Plan.
+
+### QA
+
+Run `npm run check && npm test && npm run build`. Test in a normal browser: complete Cloudflare once, scan MSB, scan again within daily quota without another CAPTCHA, confirm 2-hour cookie persistence across reloads, then run AI once from a fresh report. A scanned report permits one public AI call with a 15-minute signed receipt; if inference fails after redemption, re-scan. Owner mode is independent.
