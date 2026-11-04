@@ -3,6 +3,7 @@ import { validateUrl } from "../../../src/network.js";
 import { checkAuditAccess } from "../../../lib/audit-access.js";
 import { buildAISnapshot } from "../../../lib/ai-evidence.js";
 import { verifyPublicChallenge, consumePublicQuota, signScanReceipt } from "../../../lib/public-access.js";
+import { getVerifiedSession } from "../../../lib/public-session.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,8 +47,9 @@ export async function POST(request) {
       allowAuthenticatedPublicHosts: process.env.OPEN_GEO_ALLOW_AUTHENTICATED_PUBLIC_HOSTS === "true"
     }) : validateUrl(url);
     if (!isOwner) {
-      // Every public scan requires a fresh one-time challenge AND cross-instance quota.
-      await verifyPublicChallenge(request, payload?.turnstileToken);
+      // A server-validated, IP-bound, HttpOnly browser session replaces repeat CAPTCHAs.
+      // Older clients may still submit a one-time Turnstile token directly.
+      if (!getVerifiedSession(request)) await verifyPublicChallenge(request, payload?.turnstileToken);
       await consumePublicQuota(request, "scan");
     } else if (!throttle(target.hostname)) {
       return respond({ error: "Wait 15 seconds between owner scans of this site." }, 429);
