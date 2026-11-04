@@ -1,15 +1,17 @@
 import { auditSite } from "../../../src/audit.js";
+import { validateUrl } from "../../../src/network.js";
 import { checkAuditAccess } from "../../../lib/audit-access.js";
+import { buildAISnapshot } from "../../../lib/ai-evidence.js";
+import { verifyPublicChallenge, consumePublicQuota, signScanReceipt } from "../../../lib/public-access.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const NO_CACHE = { "Cache-Control": "no-store, private", "Content-Type": "application/json" };
-function response(body, status) { return Response.json(body, { status, headers: NO_CACHE }); }
+function respond(body, status) { return Response.json(body, { status, headers: NO_CACHE }); }
 
-// Local process throttle is only defense-in-depth; stateless hosts must also
-// use platform WAF/rate limiting. Production scans require an API key.
+// Defense-in-depth in-process throttle; durable public quotas are in Upstash.
 const started = new Map();
 function throttle(id) {
   const now = Date.now();
@@ -23,27 +25,44 @@ function throttle(id) {
 export async function POST(request) {
   try {
     const length = Number(request.headers.get("content-length") || 0);
-    if (length > 8_192) return response({ error: "Request body is too large." }, 413);
-    const bodyText = await request.text();
-    if (bodyText.length > 8_192) return response({ error: "Request body is too large." }, 413);
-    const payload = JSON.parse(bodyText);
-    const url = String(payload.url || "");
-    const maxPages = payload.maxPages == null ? 3 : Number(payload.maxPages);
-    if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 5) return response({ error: "Select 1–5 pages for dashboard scans. The CLI supports up to 20." }, 400);
+    if (length > 8_192) return respond({ error: "Request body is too large." }, 413);
+    const raw = await request.text();
+    if (Buffer.byteLength(raw) > 8_192) return respond({ error: "Request body is too large." }, 413);
+    let payload;
+    try { payload = JSON.parse(raw); }
+    catch { return respond({ error: "Invalid JSON request." }, 400); }
+    const url = String(payload?.url || "");
+    if (!url || url.length > 2000) return respond({ error: "Provide a valid website URL (max 2000 characters)." }, 400);
     const key = request.headers.get("x-opengeo-key") || "";
-    const target = checkAuditAccess({
+    const isOwner = Boolean(key);
+    const maxPages = payload?.maxPages == null ? 3 : Number(payload.maxPages);
+    if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > (isOwner ? 5 : 3)) {
+      return respond({ error: "Public scans support 1–3 pages; owner scans support up to 5." }, 400);
+    }
+    const target = isOwner ? checkAuditAccess({
       url, key, allowedHosts: process.env.OPEN_GEO_ALLOWED_HOSTS,
       expectedKey: process.env.OPEN_GEO_API_KEY,
       production: process.env.NODE_ENV === "production",
       allowAuthenticatedPublicHosts: process.env.OPEN_GEO_ALLOW_AUTHENTICATED_PUBLIC_HOSTS === "true"
-    });
-    const token = [target.hostname, "authorized"].join(":");
-    if (!throttle(token)) return response({ error: "Wait 15 seconds before starting another scan." }, 429);
-    // No Playwright on serverless API, no cross-domain canonical probes.
+    }) : validateUrl(url);
+    if (!isOwner) {
+      // Every public scan requires a fresh one-time challenge AND cross-instance quota.
+      await verifyPublicChallenge(request, payload?.turnstileToken);
+      await consumePublicQuota(request, "scan");
+    } else if (!throttle(target.hostname)) {
+      return respond({ error: "Wait 15 seconds between owner scans of this site." }, 429);
+    }
+    // No Playwright, no JS execution, no cross-domain canonical probes.
     const report = await auditSite(target.href, { maxPages, renderJs: false, verifyCanonical: false });
-    return response(report, 200);
+    if (isOwner) return respond(report, 200);
+    const receipt = signScanReceipt(buildAISnapshot(report), process.env.OPEN_GEO_API_KEY);
+    return respond({ report, receipt, publicScan: true }, 200);
   } catch (error) {
-    const status = Number(error.status) || (/URL|address|hostname|HTTP|protocol|port/i.test(error.message) ? 400 : 500);
-    return response({ error: status === 500 ? "Audit failed. Check server logs and website availability." : error.message }, status);
+    const status = Number(error?.status) ||
+      (/URL|address|hostname|HTTP|protocol|port/i.test(error?.message || "") ? 400 : 502);
+    const safe = status >= 500 && status !== 503 ?
+      "Website scan failed. Check site availability, robots policy and server logs." :
+      error.message;
+    return respond({ error: safe }, status);
   }
 }
