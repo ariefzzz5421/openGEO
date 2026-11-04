@@ -156,3 +156,15 @@ Set server environment variables OPEN_GEO_AI_ENABLED=true, OPEN_GEO_API_KEY (own
 AI output is mapped back to confirmed report rule IDs; it cannot introduce new audit findings through the structured response. Models may still hallucinate suggested explanations or code. Review all changes manually and rerun the deterministic scanner after applying fixes. AI does not edit a website, fetch source code, verify Google indexing or measure ChatGPT citations.
 
 See [AI setup and security](docs/dashboard.md).
+
+
+## v0.7: public URL analyzer + GPT-6 Luna
+
+OpenGEO now offers two paths:
+- Public: paste any public HTTP(S) domain, complete Cloudflare Turnstile, scan 1–3 pages and optionally request GPT-6 Luna (Gemini fallback). Public mode is disabled until all safety variables are configured.
+- Owner: existing OPEN_GEO_API_KEY continues to protect trusted integrations and permits up to 5 pages.
+- Offline: JSON import + deterministic Fix Advisor work without model API keys.
+
+Public requests enforce pinned public IPv4 DNS, same-site redirects, robots.txt, byte/time limits, fresh one-time Turnstile challenges, and global/per-IP daily quotas in Upstash Redis. An HMAC-signed scan receipt (15 minute lifetime) binds AI calls to the actual scan evidence. Target website JavaScript is never executed.
+
+OpenAI GPT-6 Luna is a paid API model. The model only explains technical audit findings, not measured Google rankings or live ChatGPT citations. Code is never automatically patched. See docs/dashboard.md for Vercel setup.

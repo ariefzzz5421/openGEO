@@ -256,3 +256,10 @@ td small{display:block;color:#7c8e9e;font-size:10px;margin-top:5px;overflow-wrap
 .ai-caveat,.ai-disclosure{color:#b0b096;font-size:11px;line-height:1.65}
 .ai-disclosure{border-top:1px solid #345149;padding-top:15px}
 @media(max-width:700px){.ai-advisor-head{flex-wrap:wrap;gap:12px}.ai-advisor-head>.button-primary{width:100%;margin:0}.ai-advisor-panel{padding:15px}}
+
+/* v0.7 public scan verification controls */
+.challenge-wrap{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-top:12px;padding:9px 0;min-height:58px}
+.challenge-label{font-size:11px;color:#c2d2bd;font-weight:650;max-width:220px}
+.challenge-note{font-size:11px;color:#9eb1bb;line-height:1.6;margin:9px 0}
+.ai-public-challenge{margin-top:15px;padding:10px 14px;background:#112723;border:1px solid #31554a;border-radius:10px}
+@media(max-width:580px){.challenge-wrap{flex-direction:column;align-items:flex-start;gap:7px}}

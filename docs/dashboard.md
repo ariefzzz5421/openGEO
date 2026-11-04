@@ -119,3 +119,58 @@ The model is explicitly instructed to treat report content as data, not commands
 The AI endpoint is off by default, requires the strong private owner key even in local development, caps request bodies at 18 KB, limits output, and enforces a 30-second process-local cooldown. On serverless hosts the cooldown is **not global**: configure Vercel Firewall/WAF, protected deployment access, rate limits and provider budget alerts before broader use. Use of any free provider tier is subject to quota and availability; if exhausted, the rule-based advisor remains functional.
 
 For production use across multiple users, replace the shared owner key with per-user authentication and persisted quotas. Do not open this as a public anonymous inference proxy.
+
+
+## v0.7 public scanning — required setup
+
+Public mode is opt-in. Visitors do not need the owner's OPEN_GEO_API_KEY. To protect arbitrary public scans, every request needs a fresh anti-bot challenge and globally persisted rate limits.
+
+### 1. Cloudflare Turnstile
+
+Create a widget at https://dash.cloudflare.com/turnstile and register opengeo-studio.vercel.app and any custom production hostname. Add to Vercel opengeo-studio Production environment:
+- NEXT_PUBLIC_TURNSTILE_SITE_KEY: public browser site key, embedded when the Next.js build runs
+- TURNSTILE_SECRET_KEY: private server-only siteverify secret
+
+### 2. Upstash Redis REST quota storage
+
+Create an Upstash Redis database at https://console.upstash.com and copy:
+- UPSTASH_REDIS_REST_URL (HTTPS at a *.upstash.io host)
+- UPSTASH_REDIS_REST_TOKEN (private server token)
+
+The API uses daily per-visitor (IP hashed with the private owner secret) and global counters. Daily limits: 3 scans/IP and 120 scans globally; 2 AI requests/IP and 30 AI requests globally. Redis or Turnstile failure blocks requests (503/403) rather than bypassing protection. Configure Vercel WAF rules and provider spend alerts too; quotas do not stop every kind of abuse.
+
+### 3. Enable public mode
+
+Set the following Vercel Production environment variables:
+
+    OPEN_GEO_PUBLIC_ENABLED=true
+    OPEN_GEO_API_KEY=your-own-32-plus-character-random-secret
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY=your-cloudflare-public-key
+    TURNSTILE_SECRET_KEY=your-cloudflare-private-secret
+    UPSTASH_REDIS_REST_URL=https://your-database.upstash.io
+    UPSTASH_REDIS_REST_TOKEN=your-private-upstash-token
+
+OPEN_GEO_API_KEY is the same server owner key as before, never shared with visitors. It also signs scan receipts; rotating it invalidates old public receipts. All six values are required to open public routes. Redeploy AFTER setting them, since NEXT_PUBLIC_ keys are embedded at build.
+
+### 4. Configure GPT-6 Luna primary and Gemini fallback
+
+    OPEN_GEO_AI_ENABLED=true
+    OPEN_GEO_AI_PROVIDER=openai
+    OPENAI_API_KEY=your-private-openai-api-key
+    OPEN_GEO_OPENAI_MODEL=gpt-6-luna
+    GEMINI_API_KEY=your-private-google-ai-key
+    OPEN_GEO_GEMINI_MODEL=gemini-3.5-flash-lite
+
+Optional GROQ_API_KEY stays a third-line fallback if already configured. The server calls OpenAI Responses API and Google Gemini REST API; keys never enter a public browser bundle. Only bounded audit findings are sent to a model. Model JSON is parsed and bound to real finding references.
+
+GPT-6 Luna requires a paid OpenAI API tier and can incur charges; Gemini may be free only within its eligible free-tier limits. Do NOT assume free unlimited AI for public users.
+
+### 5. Public user flow
+
+1. Paste a publicly reachable HTTP(S) URL.
+2. Complete Turnstile and click Analyze website; the scan covers up to 3 pages.
+3. Review technical audit evidence and deterministic Fix Advisor.
+4. Complete a new Turnstile challenge in Fix Advisor and click Analyze with AI. This requires a fresh server-signed receipt (valid for 15 minutes). Imported JSON reports cannot spend public AI quota without a fresh scan.
+5. The UI displays provider/model actually used; failed inference leaves the offline Fix Advisor available.
+
+Public scanning measures technical readiness, not actual Google Search Console indexing or live AI citations. It cannot change the scanned website.
