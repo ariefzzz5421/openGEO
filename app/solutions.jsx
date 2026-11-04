@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { remediationPlan } from "../lib/remediation.js";
 import { buildAISnapshot } from "../lib/ai-evidence.js";
-import TurnstileChallenge from "./turnstile.jsx";
 
 const priorities = ["all", "critical", "high", "medium", "low"];
 
@@ -23,15 +22,15 @@ function Card({ item, onCopy, copyState }) {
   </article>;
 }
 
-export default function Solutions({ report, accessKey, publicReceipt = "" }) {
+export default function Solutions({ report, accessKey, publicReceipt = "", savedAIResult = null, onAIResult }) {
   const [filter, setFilter] = useState("all");
   const [copyState, setCopyState] = useState("");
   const [term, setTerm] = useState("");
   const [aiBusy, setAIBusy] = useState(false);
-  const [aiResult, setAIResult] = useState(null);
+  const aiResult = savedAIResult;
+  const resultRef = useRef(null);
+  useEffect(() => { if (aiResult) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, [aiResult]);
   const [aiError, setAIError] = useState("");
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const [challengeReset, setChallengeReset] = useState(0);
   const plan = useMemo(() => remediationPlan(report), [report]);
   const items = useMemo(() => plan.issues.filter((item) =>
     (filter === "all" || item.priority === filter) &&
@@ -41,13 +40,8 @@ export default function Solutions({ report, accessKey, publicReceipt = "" }) {
   async function askAI() {
     if (aiBusy) return;
     setAIError("");
-    setAIResult(null);
     if (!accessKey && !publicReceipt) {
       setAIError("Public AI needs a fresh website scan. Import-only reports still have the offline Fix Advisor.");
-      return;
-    }
-    if (!accessKey && !turnstileToken) {
-      setAIError("Complete the anti-bot challenge before requesting public AI analysis.");
       return;
     }
     setAIBusy(true);
@@ -56,14 +50,14 @@ export default function Solutions({ report, accessKey, publicReceipt = "" }) {
       const response = await fetch("/api/ai/analyze", {
         method: "POST", cache: "no-store",
         headers: { "Content-Type": "application/json", ...(accessKey ? { "x-opengeo-key": accessKey } : {}) },
-        body: JSON.stringify({ snapshot, ...(!accessKey ? { receipt: publicReceipt, turnstileToken } : {}) })
+        body: JSON.stringify({ snapshot, ...(!accessKey ? { receipt: publicReceipt } : {}) })
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "AI analysis request failed.");
       if (!body.analysis || !body.provider) throw new Error("Provider response is incomplete.");
-      setAIResult(body);
+      onAIResult?.(body);
     } catch (error) { setAIError(error.message || "AI inference unavailable."); }
-    finally { setAIBusy(false); setTurnstileToken(""); setChallengeReset((n) => n + 1); }
+    finally { setAIBusy(false); }
   }
   async function copyCode(key, code) {
     try { await navigator.clipboard.writeText(code); setCopyState(key); }
@@ -99,11 +93,12 @@ export default function Solutions({ report, accessKey, publicReceipt = "" }) {
       <div className="ai-advisor-head">
         <div className="ai-advisor-symbol">✳</div>
         <div className="ai-advisor-intro"><div className="overline">OPTIONAL CLOUD INFERENCE</div><h3>AI-assisted SEO diagnosis</h3><p>GPT-6 Luna primary · Gemini fallback (optional Groq backup). Only bounded audit findings are sent to the provider; no AI calls run automatically.</p></div>
-        <button type="button" className="button-primary" disabled={aiBusy} onClick={askAI}>{aiBusy ? "Analyzing…" : "✦ Analyze with AI"}</button>
+        <button type="button" className="button-primary" disabled={aiBusy || (!accessKey && Boolean(aiResult))} onClick={askAI}>{aiBusy ? "Analyzing…" : aiResult ? "✓ AI analysis ready" : "✦ Analyze with AI"}</button>
       </div>
-      {!accessKey && <div className="ai-public-challenge"><TurnstileChallenge onToken={setTurnstileToken} resetSignal={challengeReset} label="Verify to request public AI analysis (2 requests/day)"/>{!publicReceipt && <p className="challenge-note">Public AI requires a fresh scan. Imported reports can use offline fixes or an owner key.</p>}</div>}
+      {!accessKey && !aiResult && <div className="ai-public-info">✓ Browser verification completed during scan. <strong>No second CAPTCHA required.</strong> One public scan permits one AI analysis within 15 minutes. {!publicReceipt && <span>For imported or old reports, run a fresh website scan first.</span>}</div>}
       {aiError && <div className="ai-advisor-error" role="alert">{aiError}<p>Rule-based recommendations below remain available without any AI API.</p></div>}
-      {aiResult && <div className="ai-response">
+      {aiResult && <div className="ai-response" ref={resultRef} aria-label="AI analysis results">
+        <div className="ai-result-head"><span className="ai-result-success">✓ AI ANALYSIS COMPLETE</span><h3>Here is your SEO/GEO action plan</h3><p>Read the summary, apply the specific changes below, then scan your site again to verify.</p></div>
         <div className="ai-response-meta"><span>PROVIDER: {aiResult.provider.toUpperCase()}</span><span>MODEL: {aiResult.model}</span>{aiResult.fallbackUsed && <span>FALLBACK USED</span>}</div>
         <p className="ai-summary">{aiResult.analysis.summary || "Analysis completed based on the submitted audit evidence."}</p>
         {(aiResult.analysis.fixes || []).map((fix) => <article key={fix.ref} className="ai-fix-card">
