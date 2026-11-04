@@ -191,7 +191,7 @@ export default function Dashboard() {
 
   return <div className="shell">
     <aside className="sidebar">
-      <div className="brand"><img className="brand-icon" src="/icon.svg" alt="OpenGEO icon"/><div><div className="brand-name">OPEN<span>GEO</span></div><div className="brand-meta">INTELLIGENCE CONSOLE</div></div></div>
+      <div className="brand"><img className="brand-icon" src="/icon.png" alt="OpenGEO icon"/><div><div className="brand-name">OPEN<span>GEO</span></div><div className="brand-meta">INTELLIGENCE CONSOLE</div></div></div>
       <div className="side-section">WORKSPACE</div>
       <nav className="sidebar-nav" aria-label="Main navigation">
         {NAV.map((item) => <button type="button" key={item.id} className={"nav-btn " + (view === item.id ? "active" : "")} onClick={() => { setView(item.id); setSearch(""); }}>
@@ -199,7 +199,7 @@ export default function Dashboard() {
         </button>)}
       </nav>
       <div className="side-section section-gap">ENGINE</div>
-      <div className="engine-card"><span className="status-dot"/><div><strong>Core engine online</strong><small>OpenGEO CLI v0.8</small></div></div>
+      <div className="engine-card"><span className="status-dot"/><div><strong>Technical engine ready</strong><small>OpenGEO CLI v0.8</small></div></div>
       <div className="sidebar-bottom"><div className="sidebar-separator"/><div className="side-mini">LOCAL-FIRST ANALYTICS</div><p>Audit snapshots stay in your browser. No analytics tracking or hosted report database.</p><a href="https://github.com/ariefzzz5421/openGEO" rel="noreferrer" target="_blank">GitHub repository ↗</a></div>
     </aside>
 
