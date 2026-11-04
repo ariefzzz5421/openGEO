@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { remediationPlan } from "../lib/remediation.js";
 import { buildAISnapshot } from "../lib/ai-evidence.js";
+import TurnstileChallenge from "./turnstile.jsx";
 
 const priorities = ["all", "critical", "high", "medium", "low"];
 
@@ -22,13 +23,15 @@ function Card({ item, onCopy, copyState }) {
   </article>;
 }
 
-export default function Solutions({ report, accessKey }) {
+export default function Solutions({ report, accessKey, publicReceipt = "" }) {
   const [filter, setFilter] = useState("all");
   const [copyState, setCopyState] = useState("");
   const [term, setTerm] = useState("");
   const [aiBusy, setAIBusy] = useState(false);
   const [aiResult, setAIResult] = useState(null);
   const [aiError, setAIError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [challengeReset, setChallengeReset] = useState(0);
   const plan = useMemo(() => remediationPlan(report), [report]);
   const items = useMemo(() => plan.issues.filter((item) =>
     (filter === "all" || item.priority === filter) &&
@@ -39,8 +42,12 @@ export default function Solutions({ report, accessKey }) {
     if (aiBusy) return;
     setAIError("");
     setAIResult(null);
-    if (!accessKey) {
-      setAIError("Enter your private API key in Server access settings above. AI analysis never runs anonymously.");
+    if (!accessKey && !publicReceipt) {
+      setAIError("Public AI needs a fresh website scan. Import-only reports still have the offline Fix Advisor.");
+      return;
+    }
+    if (!accessKey && !turnstileToken) {
+      setAIError("Complete the anti-bot challenge before requesting public AI analysis.");
       return;
     }
     setAIBusy(true);
@@ -48,15 +55,15 @@ export default function Solutions({ report, accessKey }) {
       const snapshot = buildAISnapshot(report);
       const response = await fetch("/api/ai/analyze", {
         method: "POST", cache: "no-store",
-        headers: { "Content-Type": "application/json", "x-opengeo-key": accessKey },
-        body: JSON.stringify({ snapshot })
+        headers: { "Content-Type": "application/json", ...(accessKey ? { "x-opengeo-key": accessKey } : {}) },
+        body: JSON.stringify({ snapshot, ...(!accessKey ? { receipt: publicReceipt, turnstileToken } : {}) })
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "AI analysis request failed.");
       if (!body.analysis || !body.provider) throw new Error("Provider response is incomplete.");
       setAIResult(body);
     } catch (error) { setAIError(error.message || "AI inference unavailable."); }
-    finally { setAIBusy(false); }
+    finally { setAIBusy(false); setTurnstileToken(""); setChallengeReset((n) => n + 1); }
   }
   async function copyCode(key, code) {
     try { await navigator.clipboard.writeText(code); setCopyState(key); }
@@ -91,9 +98,10 @@ export default function Solutions({ report, accessKey }) {
     <section className="ai-advisor-panel">
       <div className="ai-advisor-head">
         <div className="ai-advisor-symbol">✳</div>
-        <div className="ai-advisor-intro"><div className="overline">OPTIONAL CLOUD INFERENCE</div><h3>AI-assisted SEO diagnosis</h3><p>Gemini primary · Groq fallback. Only a bounded summary of audit findings is sent to the provider. No AI calls occur automatically.</p></div>
+        <div className="ai-advisor-intro"><div className="overline">OPTIONAL CLOUD INFERENCE</div><h3>AI-assisted SEO diagnosis</h3><p>GPT-6 Luna primary · Gemini fallback (optional Groq backup). Only bounded audit findings are sent to the provider; no AI calls run automatically.</p></div>
         <button type="button" className="button-primary" disabled={aiBusy} onClick={askAI}>{aiBusy ? "Analyzing…" : "✦ Analyze with AI"}</button>
       </div>
+      {!accessKey && <div className="ai-public-challenge"><TurnstileChallenge onToken={setTurnstileToken} resetSignal={challengeReset} label="Verify to request public AI analysis (2 requests/day)"/>{!publicReceipt && <p className="challenge-note">Public AI requires a fresh scan. Imported reports can use offline fixes or an owner key.</p>}</div>}
       {aiError && <div className="ai-advisor-error" role="alert">{aiError}<p>Rule-based recommendations below remain available without any AI API.</p></div>}
       {aiResult && <div className="ai-response">
         <div className="ai-response-meta"><span>PROVIDER: {aiResult.provider.toUpperCase()}</span><span>MODEL: {aiResult.model}</span>{aiResult.fallbackUsed && <span>FALLBACK USED</span>}</div>
