@@ -28,3 +28,10 @@ The optional --render-js --i-own-this-site mode executes untrusted JavaScript in
 POST /api/ai/analyze is disabled unless OPEN_GEO_AI_ENABLED=true and a private OPEN_GEO_API_KEY (16+ chars) is configured. Only Gemini and Groq fixed official HTTPS endpoints are contacted; provider/model names are server-side configuration, not user-controlled URLs. Audit URLs supplied to AI are only model context: the AI endpoint does not browse them. Payloads are size bounded, sanitized to findings, and AI results are constrained to valid audit issue references.
 
 Prompt injection is reduced by treating all website/report content as untrusted input and filtering model output, but can never be fully prevented. Generated code must be human-reviewed. Provider requests can incur cost and may be subject to provider data-retention policies. Never expose the inference endpoint to anonymous users; require auth, WAF and distributed quotas in any scaled deployment.
+
+
+## v0.7 public scan and model budget safety
+
+Public mode is OFF by default and requires Cloudflare Turnstile (server-verified one-time tokens and hostname), Upstash Redis quotas, and a 32+ character owner secret. Public DNS queries and HTTP requests remain IPv4-pinned to public addresses, same-host redirect-only and robots-respecting. JavaScript from targets is never executed. 15-minute HMAC receipts prevent arbitrary user-authored AI snapshots from being billed through the public API.
+
+Limits: per-IP and global 24-hour budgets (scan 3/120; AI 2/30). Configure additional Vercel Firewall, runtime monitoring, abuse policies, and OpenAI/Google account spending caps. API spending still may occur. Never place OPENAI_API_KEY, GEMINI_API_KEY, TURNSTILE_SECRET_KEY, Upstash token or owner key under NEXT_PUBLIC_.
