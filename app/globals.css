@@ -263,3 +263,14 @@ td small{display:block;color:#7c8e9e;font-size:10px;margin-top:5px;overflow-wrap
 .challenge-note{font-size:11px;color:#9eb1bb;line-height:1.6;margin:9px 0}
 .ai-public-challenge{margin-top:15px;padding:10px 14px;background:#112723;border:1px solid #31554a;border-radius:10px}
 @media(max-width:580px){.challenge-wrap{flex-direction:column;align-items:flex-start;gap:7px}}
+
+
+/* v0.7.1: one human check per public scan; stronger analysis hierarchy */
+.ai-public-info{margin-top:14px;padding:12px 15px;border:1px solid #36674e;border-radius:10px;background:#1b3329;color:#c5e5cb;font-size:12px;line-height:1.6}
+.ai-public-info strong{color:#c0f7a5}
+.ai-public-info span{display:block;margin-top:4px;color:#f6d59b}
+.ai-result-head{padding:16px 18px;border:1px solid #4b7952;border-radius:10px;background:linear-gradient(120deg,#203d31,#203833);margin-bottom:18px}
+.ai-result-head h3{font-size:18px;color:#e9ffe0;letter-spacing:-.4px;margin:8px 0 5px}
+.ai-result-head p{font-size:12px;color:#d4e8d8;margin:0;line-height:1.6}
+.ai-result-success{display:inline-flex;align-items:center;color:#c5ffa0;font-weight:800;font-size:11px;letter-spacing:1px}
+.ai-response{scroll-margin-top:24px}
