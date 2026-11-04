@@ -174,3 +174,13 @@ GPT-6 Luna requires a paid OpenAI API tier and can incur charges; Gemini may be 
 5. The UI displays provider/model actually used; failed inference leaves the offline Fix Advisor available.
 
 Public scanning measures technical readiness, not actual Google Search Console indexing or live AI citations. It cannot change the scanned website.
+
+## v0.7.1 — Less CAPTCHA friction and clearer AI output
+
+Previously the website asked for a separate Cloudflare Turnstile token for scanning and AI analysis. Public scans still require a valid server-verified Turnstile challenge, but the AI button now accepts the signed receipt issued by that scan. The receipt is bound to the exact audit snapshot, expires after 15 minutes, and is atomically marked as used in Upstash Redis (`SET ... NX EX`) so it can trigger at most ONE public AI call. Both per-IP and global AI quotas still apply.
+
+User flow: (1) visit OpenGEO Studio; (2) verify Turnstile once and scan a website; (3) open Fix Advisor and click Analyze with AI without a second widget; (4) results scroll into view in a distinct AI Action Plan panel and can be copied. The result remains in memory while switching dashboard tabs, but refreshing the browser clears the AI result because paid/provider data are not written to local history.
+
+If an AI request fails after the receipt has been redeemed, the visitor must perform a new scan before retrying; this is intentional fail-closed protection against repeated paid inferences. Scans are limited to 3 per IP/day. Owner-key requests remain a separate protected mode.
+
+Cloudflare Turnstile tokens are single-use and expire after 5 minutes; the receipt is an OpenGEO-issued token created only after successful server verification and crawling. Do not confuse the two.
