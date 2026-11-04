@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { analyzeWithGemini, analyzeWithGroq, runHybridAnalysis } from "../lib/ai-providers.js";
+import { analyzeWithOpenAI, analyzeWithGemini, analyzeWithGroq, runHybridAnalysis } from "../lib/ai-providers.js";
 import { authorizeAIRequest } from "../lib/ai-access.js";
 
 const snapshot = {
@@ -59,4 +59,39 @@ test("unavailable providers return a clear error rather than fabricated output",
   await assert.rejects(runHybridAnalysis(snapshot,{}), /No inference provider/);
   const fake = async () => new Response("{}",{status:500});
   await assert.rejects(runHybridAnalysis(snapshot,{geminiKey:"k",groqKey:"k",fetchImpl:fake}), /providers unavailable/);
+});
+
+
+test("OpenAI GPT-6 Luna uses Responses API with JSON output and never leaks the key into model input", async () => {
+  const calls = [];
+  const fake = async (url, opts) => {
+    calls.push({url,opts});
+    return Response.json({output:[{type:"message",content:[{type:"output_text",text:answer}]}]});
+  };
+  const result = await analyzeWithOpenAI(snapshot,{key:"test-private-openai-key",fetchImpl:fake});
+  assert.equal(result.provider,"openai");
+  assert.equal(result.model,"gpt-6-luna");
+  assert.equal(result.analysis.fixes[0].rule,"h1");
+  assert.equal(calls[0].url,"https://api.openai.com/v1/responses");
+  assert.equal(calls[0].opts.headers.Authorization,"Bearer test-private-openai-key");
+  const payload = JSON.parse(calls[0].opts.body);
+  assert.equal(payload.store,false);
+  assert.equal(payload.text.format.type,"json_object");
+  assert.equal(payload.reasoning.effort,"low");
+  assert.equal(calls[0].opts.body.includes("test-private-openai-key"),false);
+});
+
+test("GPT-6 Luna failure uses Gemini fallback and preserves evidence mappings", async () => {
+  const urls = [];
+  const fake = async (url) => {
+    urls.push(url);
+    if (url.includes("api.openai.com")) return new Response(JSON.stringify({error:"unavailable"}),{status:503});
+    return Response.json({candidates:[{content:{parts:[{text:answer}]}}]});
+  };
+  const result=await runHybridAnalysis(snapshot,{openaiKey:"openai-key",geminiKey:"gemini-key",fetchImpl:fake});
+  assert.equal(result.provider,"gemini");
+  assert.equal(result.fallbackUsed,true);
+  assert.equal(urls.length,2);
+  assert.ok(urls[0].includes("api.openai.com"));
+  assert.ok(urls[1].includes("googleapis.com"));
 });
