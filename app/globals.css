@@ -277,3 +277,40 @@ td small{display:block;color:#7c8e9e;font-size:10px;margin-top:5px;overflow-wrap
 
 .ai-copy-plan{margin-top:14px;padding:8px 13px;border:1px solid #83c48b;color:#e2ffd0;background:#244835;border-radius:8px;font-size:11px;font-weight:750;cursor:pointer}
 .ai-copy-plan:hover{background:#356544}
+
+
+/* OpenGEO v0.8: identity, verified personal browser session, and actual-time AI feedback */
+.brand-icon{width:45px;height:45px;object-fit:contain;display:block;flex:none;filter:drop-shadow(0 0 8px rgba(181,255,74,.2))}
+.verified-session{display:flex;align-items:center;gap:9px;margin-top:12px;border-radius:10px;border:1px solid #46724c;padding:11px 14px;background:#173126;color:#c7faaf;font-size:12px;font-weight:700}
+.verification-panel{margin-top:12px;border:1px solid #354d49;border-radius:10px;padding:12px 14px;background:#102126}
+.verification-title{font-size:12px;font-weight:750;color:#d5e8d8}
+.verification-error{color:#ffa88e;font-size:12px;line-height:1.5;margin-top:7px}
+.ai-loading{display:flex;gap:16px;align-items:flex-start;border:1px solid #526d44;background:linear-gradient(120deg,#182d25,#12282b);border-radius:12px;padding:17px 18px;margin-top:18px}
+.ai-loading-orbit{height:37px;width:37px;flex:none;border-radius:50%;border:3px solid #355646;border-top-color:#baf692;box-shadow:0 0 18px rgba(186,246,146,.2);animation:opengeo-rotate 1s linear infinite}
+@keyframes opengeo-rotate{to{transform:rotate(360deg)}}
+.ai-loading-copy{flex:1;min-width:0}
+.ai-loading-copy strong{font-size:13px;color:#e7f6e5}
+.ai-loading-copy p{font-size:11px;line-height:1.65;color:#adc8bb;margin:5px 0 10px}
+.ai-loading-copy small{font-size:11px;color:#c0e0be;line-height:1.6;display:block;margin-top:8px}
+.ai-loading-track{width:100%;height:5px;overflow:hidden;border-radius:99px;background:#315047}
+.ai-loading-track span{display:block;width:28%;height:100%;border-radius:99px;background:linear-gradient(90deg,#5fb76d,#b9fa91);animation:opengeo-indeterminate 1.6s ease-in-out infinite}
+@keyframes opengeo-indeterminate{0%{transform:translateX(-110%)}100%{transform:translateX(390%)}}
+.geo-capability-panel{padding:22px;margin-top:22px;border:1px solid #304c45;background:linear-gradient(115deg,#0d1a20,#142623);border-radius:13px}
+.geo-capability-panel h3{font-size:19px;letter-spacing:-.4px;margin:8px 0}
+.geo-capability-panel>p{font-size:12px;max-width:850px;color:#adc0bd;line-height:1.7;margin:0 0 16px}
+.geo-capability-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.geo-capability-grid article{border:1px solid #2d5145;background:#11252a;border-radius:9px;padding:14px}
+.geo-capability-grid article strong{font-size:12px;color:#c4ff91}
+.geo-capability-grid article p{font-size:11px;color:#e1eee5;line-height:1.6;margin:9px 0}
+.geo-capability-grid article small{font-size:10px;color:#90a9a2;line-height:1.5}
+.fix-execution-guide{border:1px solid #33594c;background:#152626;border-radius:10px;padding:14px 15px;margin:12px 0}
+.fix-execution-guide>strong{font-size:11px;color:#bbfb8e;letter-spacing:.7px}
+.fix-guide-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
+.fix-guide-steps>div{padding:11px;border:1px solid #2f4a43;border-radius:8px;background:#0f1e22}
+.fix-guide-steps span{font-size:11px;color:#baf68e;font-weight:750}
+.fix-guide-steps p{font-size:11px;color:#c3d8cd;line-height:1.65}
+.fix-guide-outcome{border-top:1px solid #355749;padding-top:12px;font-size:11px;color:#b0cbb9;line-height:1.65}
+.fix-guide-outcome b{color:#c9f5a5}
+@media(max-width:1040px){.geo-capability-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.fix-guide-steps,.geo-capability-grid{grid-template-columns:1fr}.ai-loading{padding:13px}}
+@media(prefers-reduced-motion:reduce){.ai-loading-orbit,.ai-loading-track span{animation:none}}
