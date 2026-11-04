@@ -56,7 +56,7 @@ test("Groq can be the primary provider", async () => {
 });
 
 test("unavailable providers return a clear error rather than fabricated output", async () => {
-  await assert.rejects(runHybridAnalysis(snapshot,{}), /No inference provider/);
+  await assert.rejects(runHybridAnalysis(snapshot,{}), /No provider configured/);
   const fake = async () => new Response("{}",{status:500});
   await assert.rejects(runHybridAnalysis(snapshot,{geminiKey:"k",groqKey:"k",fetchImpl:fake}), /providers unavailable/);
 });
