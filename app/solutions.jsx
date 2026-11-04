@@ -63,6 +63,31 @@ export default function Solutions({ report, accessKey, publicReceipt = "", saved
     try { await navigator.clipboard.writeText(code); setCopyState(key); }
     catch { setCopyState(""); }
   }
+  async function copyAIPlan() {
+    if (!aiResult?.analysis) return;
+    const lines = [
+      "# OpenGEO AI Action Plan",
+      "Website: " + report.target,
+      "Provider: " + aiResult.provider + " / " + aiResult.model,
+      "",
+      aiResult.analysis.summary || "",
+      "",
+      ...(aiResult.analysis.fixes || []).flatMap((fix, i) => [
+        String(i + 1) + ". " + fix.rule + " (" + fix.priority + ")",
+        "URL: " + fix.url,
+        "Reason: " + fix.reason,
+        ...fix.steps.map((step) => " - " + step),
+        "Verify: " + fix.verify,
+        ""
+      ]),
+      "These recommendations require human review; they do not verify search ranking or AI citations."
+    ];
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopyState("ai-plan");
+    } catch { setAIError("Could not copy the AI action plan. Use your browser clipboard permissions."); }
+  }
+
   function exportPlan() {
     const lines = [
       "# OpenGEO — prioritized fix plan", "",
@@ -98,7 +123,7 @@ export default function Solutions({ report, accessKey, publicReceipt = "", saved
       {!accessKey && !aiResult && <div className="ai-public-info">✓ Browser verification completed during scan. <strong>No second CAPTCHA required.</strong> One public scan permits one AI analysis within 15 minutes. {!publicReceipt && <span>For imported or old reports, run a fresh website scan first.</span>}</div>}
       {aiError && <div className="ai-advisor-error" role="alert">{aiError}<p>Rule-based recommendations below remain available without any AI API.</p></div>}
       {aiResult && <div className="ai-response" ref={resultRef} aria-label="AI analysis results">
-        <div className="ai-result-head"><span className="ai-result-success">✓ AI ANALYSIS COMPLETE</span><h3>Here is your SEO/GEO action plan</h3><p>Read the summary, apply the specific changes below, then scan your site again to verify.</p></div>
+        <div className="ai-result-head"><span className="ai-result-success">✓ AI ANALYSIS COMPLETE</span><h3>Here is your SEO/GEO action plan</h3><p>Read the summary, apply the specific changes below, then scan your site again to verify.</p><button type="button" className="ai-copy-plan" onClick={copyAIPlan}>{copyState === "ai-plan" ? "✓ Copied" : "Copy AI Action Plan"}</button></div>
         <div className="ai-response-meta"><span>PROVIDER: {aiResult.provider.toUpperCase()}</span><span>MODEL: {aiResult.model}</span>{aiResult.fallbackUsed && <span>FALLBACK USED</span>}</div>
         <p className="ai-summary">{aiResult.analysis.summary || "Analysis completed based on the submitted audit evidence."}</p>
         {(aiResult.analysis.fixes || []).map((fix) => <article key={fix.ref} className="ai-fix-card">
