@@ -20,6 +20,9 @@ export default function TurnstileChallenge({ onToken, resetSignal = 0, label = "
         widgetId.current = window.turnstile.render(host.current, {
           sitekey: TURNSTILE_SITE_KEY,
           theme: "dark",
+          // Hide the visual challenge once the browser passes automatically.
+          // Only show an interaction when Cloudflare actually requires it.
+          appearance: "interaction-only",
           callback: (token) => callbackRef.current(token),
           "expired-callback": () => callbackRef.current(""),
           "error-callback": () => callbackRef.current("")
