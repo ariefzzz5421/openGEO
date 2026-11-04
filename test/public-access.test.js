@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   publicModeConfigured, verifyPublicChallenge, consumePublicQuota,
-  signScanReceipt, validateScanReceipt
+  signScanReceipt, validateScanReceipt, redeemScanReceipt
 } from "../lib/public-access.js";
 
 const env = {
@@ -58,4 +58,27 @@ test("signed public receipts bind the exact scan evidence and expire after 15m",
   assert.equal(validateScanReceipt(snapshot,receipt,"y".repeat(64),now+1000),false);
   assert.equal(validateScanReceipt(snapshot,receipt,env.OPEN_GEO_API_KEY,now+901_000),false);
   assert.equal(validateScanReceipt(snapshot,"not-a-receipt",env.OPEN_GEO_API_KEY,now),false);
+});
+
+
+test("one valid audit receipt can be redeemed for AI once, without a second Turnstile token", async () => {
+  const commands = [];
+  const fake = async (url, opts) => {
+    assert.match(url, /upstash.io\/pipeline/);
+    commands.push(JSON.parse(opts.body));
+    return Response.json([{result:commands.length === 1 ? "OK" : null}]);
+  };
+  const validReceipt = signScanReceipt({target:"https://example.com/"}, env.OPEN_GEO_API_KEY);
+  assert.equal(await redeemScanReceipt(validReceipt, {env,fetchImpl:fake}),true);
+  assert.equal(commands[0][0][0],"SET");
+  assert.match(commands[0][0][1],/^opengeo:receipt-used:[0-9a-f]{64}$/);
+  assert.equal(commands[0][0][3],"EX");
+  assert.equal(commands[0][0][5],"NX");
+  await assert.rejects(redeemScanReceipt(validReceipt,{env,fetchImpl:fake}), (e) => e.status === 409);
+});
+test("public AI receipt redemption fails closed if Redis is unavailable or receipt malformed", async () => {
+  await assert.rejects(redeemScanReceipt("not-a-receipt",{env}), e=>e.status === 403);
+  const signed = signScanReceipt({target:"https://example.com/"},env.OPEN_GEO_API_KEY);
+  await assert.rejects(redeemScanReceipt(signed,{env,fetchImpl:async()=>{throw Error("Redis unavailable")}}),e=>e.status===503);
+  await assert.rejects(redeemScanReceipt(signed,{env,fetchImpl:async()=>Response.json([{result:{error:"bad"}}])}),e=>e.status===409);
 });

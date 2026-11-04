@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 // Cloudflare's widget is a public anti-bot challenge; secrets and verification
-// live ONLY in the API routes. A new token is required for each API action.
+// live ONLY in the API routes. Public scans get a fresh token; AI uses a one-time signed scan receipt.
 export default function TurnstileChallenge({ onToken, resetSignal = 0, label = "Verification" }) {
   const host = useRef(null);
   const widgetId = useRef(null);
@@ -20,6 +20,9 @@ export default function TurnstileChallenge({ onToken, resetSignal = 0, label = "
         widgetId.current = window.turnstile.render(host.current, {
           sitekey: TURNSTILE_SITE_KEY,
           theme: "dark",
+          // Hide the visual challenge once the browser passes automatically.
+          // Only show an interaction when Cloudflare actually requires it.
+          appearance: "interaction-only",
           callback: (token) => callbackRef.current(token),
           "expired-callback": () => callbackRef.current(""),
           "error-callback": () => callbackRef.current("")

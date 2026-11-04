@@ -68,6 +68,7 @@ export default function Dashboard() {
   const [turnstileToken, setTurnstileToken] = useState("");
   const [challengeReset, setChallengeReset] = useState(0);
   const [scanReceipts, setScanReceipts] = useState({});
+  const [aiResults, setAIResults] = useState({});
   const [reports, setReports] = useState([]);
   const [hydrated, setHydrated] = useState(false);
   const [selected, setSelected] = useState("");
@@ -151,7 +152,7 @@ export default function Dashboard() {
   }
   function clearHistory() {
     if (!window.confirm("Clear all locally stored OpenGEO audit history? Export reports first if you need them.")) return;
-    setReports([]); setSelected(""); setBaseline(""); setMessage("Local history cleared.");
+    setReports([]); setSelected(""); setBaseline(""); setScanReceipts({}); setAIResults({}); setMessage("Local history cleared.");
   }
 
   return <div className="shell">
@@ -175,7 +176,7 @@ export default function Dashboard() {
         <input aria-label="Import OpenGEO JSON report" type="file" accept="application/json,.json" className="sr-only" ref={inputFile} onChange={importJson}/>
         <section className="scan-panel" aria-label="Start a new audit">
           <div className="panel-title"><span className="pulse-icon">⌕</span><div><strong>Analyze any authorized website</strong><small>Paste an address to scan and get prioritized fixes, or import an OpenGEO JSON report</small></div><span className="scan-kicker">SAFE MODE</span></div>
-          <form className="scan-form" onSubmit={scan}><div className="input-main"><span>◎</span><input value={url} onChange={(e) => setUrl(e.target.value)} required type="text" inputMode="url" autoComplete="url" placeholder="your-website.com or https://your-website.com" aria-label="Website URL"/></div><select aria-label="Maximum pages" value={maxPages} onChange={(e) => setMaxPages(e.target.value)}><option value="1">1 page</option><option value="3">3 pages</option>{accessKey && <option value="5">5 pages</option>}</select><button type="submit" className="button-primary" disabled={busy}>{busy ? "Analyzing…" : "Analyze website ↗"}</button></form>
+          <form className="scan-form" onSubmit={scan}><div className="input-main"><span>◎</span><input value={url} onChange={(e) => setUrl(e.target.value)} required type="text" inputMode="url" autoComplete="url" placeholder="your-website.com or https://your-website.com" aria-label="Website URL"/></div><select aria-label="Maximum pages" value={maxPages} onChange={(e) => setMaxPages(e.target.value)}><option value="1">1 page</option><option value="3">3 pages</option>{accessKey && <option value="5">5 pages</option>}</select><button type="submit" className="button-primary" disabled={busy || (!accessKey && !turnstileToken)}>{busy ? "Scanning…" : !accessKey && !turnstileToken ? "Verifying browser…" : "Analyze website ↗"}</button></form>
           {!accessKey && <TurnstileChallenge onToken={setTurnstileToken} resetSignal={challengeReset} label="Public scans: complete the anti-bot check (3 pages maximum)"/>}
       <details className="advanced"><summary>Server access settings <span>↗</span></summary><p>Public scans use Cloudflare Turnstile and daily usage limits, with no owner secret required. The owner API key remains available for trusted backend integrations or authorized extended scans.</p><input aria-label="Audit API key" type="password" placeholder="Private audit access key (not saved)" autoComplete="off" value={accessKey} onChange={(e) => setAccessKey(e.target.value)}/></details>
         </section>
@@ -201,7 +202,7 @@ export default function Dashboard() {
               </section>
             </div>
           </>}
-          {view === "solutions" && <Solutions key={reportKey(current)} report={current} accessKey={accessKey} publicReceipt={scanReceipts[reportKey(current)] || ""}/>}
+          {view === "solutions" && <Solutions key={reportKey(current)} report={current} accessKey={accessKey} publicReceipt={scanReceipts[reportKey(current)] || ""} savedAIResult={aiResults[reportKey(current)] || null} onAIResult={(result) => setAIResults((previous) => ({ ...previous, [reportKey(current)]: result }))}/>}
           {view === "findings" && <section className="panel full-panel"><div className="toolbar"><div className="filter-tabs">{[["problems","Issues"],["fail","Failed"],["warn","Warnings"],["not-tested","Not tested"],["not-applicable","N/A"],["all","All"]].map(([value,label])=><button key={value} className={statusFilter===value?"chosen":""} onClick={()=>setStatusFilter(value)}>{label}</button>)}</div><input aria-label="Search findings" className="search-input" placeholder="Search findings…" value={search} onChange={(e)=>setSearch(e.target.value)}/></div><div className="list-count">{issueList.length} finding(s)</div>{issueList.length ? issueList.map((f,i)=><IssueRow key={i} finding={f}/>) : <Empty title="Nothing matches this filter" detail="Choose another status or clear the search field."/>}</section>}
           {view === "pages" && <section className="panel full-panel"><div className="toolbar"><div className="filter-tabs">{types.map((value)=><button key={value} className={typeFilter===value?"chosen":""} onClick={()=>setTypeFilter(value)}>{value === "all"?"All pages":value}</button>)}</div><input aria-label="Search pages" className="search-input" placeholder="Find URL or title…" value={search} onChange={(e)=>setSearch(e.target.value)}/></div><div className="table-wrap"><table><thead><tr><th>PAGE</th><th>TYPE</th><th>WORDS</th><th>ISSUES</th><th>CHECKS</th></tr></thead><tbody>{filteredPages.map((p,i)=>{const problems=p.checks.filter((x)=>["fail","warn"].includes(x.status)).length;return <tr key={p.url+i}><td><a href={p.url} target="_blank" rel="noopener noreferrer" title={p.url}>{p.title || shortUrl(p.url)} ↗</a><small>{shortUrl(p.url)}</small></td><td><span className="type-badge">{p.pageType || "other"}</span></td><td>{p.words ?? "—"}</td><td><span className={problems?"bad-number":"good-number"}>{problems}</span></td><td>{p.checks.length}</td></tr>})}</tbody></table></div>{!filteredPages.length&&<Empty title="No pages found" detail="Change your search term or page type filter."/>}</section>}
           {view === "history" && <section className="panel full-panel"><div className="panel-heading"><div><div className="overline">THIS DEVICE ONLY</div><h2>Saved audit snapshots</h2></div><button className="text-action danger-text" onClick={clearHistory}>Clear local history</button></div><div className="history-list">{reports.map((r)=><div className="history-row" key={reportKey(r)}><div className="history-indicator"/><div><strong>{new URL(r.target).hostname}</strong><p>{safeDate(r.scannedAt)} · {r.pages.length} pages · {r.summary?.warnings || 0} warnings</p></div><div className="history-score">{r.summary?.score ?? "—"}/100</div><button className="button-outline" onClick={()=>{setSelected(reportKey(r));setView("overview");}}>Open ↗</button></div>)}</div></section>}

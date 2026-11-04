@@ -1,7 +1,7 @@
 import { authorizeAIRequest } from "../../../../lib/ai-access.js";
 import { validateAISnapshot } from "../../../../lib/ai-evidence.js";
 import { runHybridAnalysis } from "../../../../lib/ai-providers.js";
-import { verifyPublicChallenge, consumePublicQuota, validateScanReceipt } from "../../../../lib/public-access.js";
+import { consumePublicQuota, validateScanReceipt, redeemScanReceipt } from "../../../../lib/public-access.js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,8 +38,9 @@ export async function POST(request) {
       if (!validateScanReceipt(payload.snapshot, payload?.receipt, process.env.OPEN_GEO_API_KEY)) {
         return respond({ error: "Run a fresh public website scan before requesting AI analysis." }, 403);
       }
-      await verifyPublicChallenge(request, payload?.turnstileToken);
       await consumePublicQuota(request, "ai");
+      // One server-verified scan grants one AI call; atomic redemption prevents replay.
+      await redeemScanReceipt(payload.receipt);
     }
     const result = await runHybridAnalysis(payload.snapshot, {
       openaiKey: process.env.OPENAI_API_KEY,
@@ -52,7 +53,7 @@ export async function POST(request) {
     });
     return respond(result, 200);
   } catch (error) {
-    const status = [400, 401, 403, 413, 429, 502, 503].includes(error?.status) ? error.status : 502;
+    const status = [400, 401, 403, 409, 413, 429, 502, 503].includes(error?.status) ? error.status : 502;
     const message = status === 502 && error?.status !== 502 ?
       "AI analysis failed. Use offline Fix Advisor and check provider settings." : error.message;
     return respond({ error: message }, status);
