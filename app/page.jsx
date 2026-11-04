@@ -65,7 +65,8 @@ export default function Dashboard() {
   const [url, setUrl] = useState(START_URL);
   const [maxPages, setMaxPages] = useState("3");
   const [accessKey, setAccessKey] = useState("");
-  const [turnstileToken, setTurnstileToken] = useState("");
+  const [verification, setVerification] = useState("checking");
+  const [verificationError, setVerificationError] = useState("");
   const [challengeReset, setChallengeReset] = useState(0);
   const [scanReceipts, setScanReceipts] = useState({});
   const [aiResults, setAIResults] = useState({});
@@ -79,6 +80,33 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const inputFile = useRef(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/public/session", { cache: "no-store", credentials: "same-origin" })
+      .then((res) => res.json())
+      .then((body) => { if (alive) setVerification(body.verified ? "verified" : "needed"); })
+      .catch(() => { if (alive) setVerification("needed"); });
+    return () => { alive = false; };
+  }, []);
+  async function verifyBrowser(token) {
+    if (!token || verification === "verified" || verification === "verifying") return;
+    setVerification("verifying");
+    setVerificationError("");
+    try {
+      const res = await fetch("/api/public/session", {
+        method: "POST", cache: "no-store", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ turnstileToken: token })
+      });
+      const body = await res.json();
+      if (!res.ok || !body.verified) throw new Error(body.error || "Verification failed.");
+      setVerification("verified");
+    } catch (error) {
+      setVerificationError(error.message || "Browser verification failed.");
+      setVerification("needed");
+      setChallengeReset((n) => n + 1);
+    }
+  }
 
   useEffect(() => {
     try {
@@ -134,21 +162,27 @@ export default function Dashboard() {
   async function scan(event) {
     event.preventDefault();
     if (busy) return;
+    if (!accessKey && verification !== "verified") {
+      setMessage("Complete browser verification once before scanning. If using owner-only mode, enter your owner key.");
+      return;
+    }
     setBusy(true);
     setMessage("");
     try {
       const res = await fetch("/api/audit", {
         method: "POST", cache: "no-store",
         headers: { "Content-Type": "application/json", ...(accessKey ? { "x-opengeo-key": accessKey } : {}) },
-        body: JSON.stringify({ url: normalizeInput(url), maxPages: Number(maxPages), ...(!accessKey ? { turnstileToken } : {}) })
+        body: JSON.stringify({ url: normalizeInput(url), maxPages: Number(maxPages) })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Server audit failed.");
       const report = data.report || data;
       if (data.receipt) setScanReceipts((previous) => ({ ...previous, [reportKey(report)]: data.receipt }));
       remember(report);
-    } catch (error) { setMessage(error.message + " You can always import a CLI JSON report."); }
-    finally { setBusy(false); setTurnstileToken(""); setChallengeReset((n) => n + 1); }
+    } catch (error) {
+      if (/anti-bot|verified browser|verification|expired/i.test(error.message || "")) setVerification("needed");
+      setMessage(error.message + " You can always import a CLI JSON report.");
+    } finally { setBusy(false); }
   }
   function clearHistory() {
     if (!window.confirm("Clear all locally stored OpenGEO audit history? Export reports first if you need them.")) return;
@@ -157,7 +191,7 @@ export default function Dashboard() {
 
   return <div className="shell">
     <aside className="sidebar">
-      <div className="brand"><div className="brand-mark">◈</div><div><div className="brand-name">OPEN<span>GEO</span></div><div className="brand-meta">INTELLIGENCE CONSOLE</div></div></div>
+      <div className="brand"><img className="brand-icon" src="/icon.png" alt="OpenGEO icon"/><div><div className="brand-name">OPEN<span>GEO</span></div><div className="brand-meta">INTELLIGENCE CONSOLE</div></div></div>
       <div className="side-section">WORKSPACE</div>
       <nav className="sidebar-nav" aria-label="Main navigation">
         {NAV.map((item) => <button type="button" key={item.id} className={"nav-btn " + (view === item.id ? "active" : "")} onClick={() => { setView(item.id); setSearch(""); }}>
@@ -165,8 +199,8 @@ export default function Dashboard() {
         </button>)}
       </nav>
       <div className="side-section section-gap">ENGINE</div>
-      <div className="engine-card"><span className="status-dot"/><div><strong>Core engine online</strong><small>OpenGEO CLI v0.7</small></div></div>
-      <div className="sidebar-bottom"><div className="sidebar-separator"/><div className="side-mini">LOCAL-FIRST ANALYTICS</div><p>Audit snapshots stay in your browser. No analytics tracking or hosted report database.</p><a href="https://github.com/ariefzzz5421/GEO" rel="noreferrer" target="_blank">GitHub repository ↗</a></div>
+      <div className="engine-card"><span className="status-dot"/><div><strong>Technical engine ready</strong><small>OpenGEO CLI v0.8</small></div></div>
+      <div className="sidebar-bottom"><div className="sidebar-separator"/><div className="side-mini">LOCAL-FIRST ANALYTICS</div><p>Audit snapshots stay in your browser. No analytics tracking or hosted report database.</p><a href="https://github.com/ariefzzz5421/openGEO" rel="noreferrer" target="_blank">GitHub repository ↗</a></div>
     </aside>
 
     <main className="main-area">
@@ -176,9 +210,15 @@ export default function Dashboard() {
         <input aria-label="Import OpenGEO JSON report" type="file" accept="application/json,.json" className="sr-only" ref={inputFile} onChange={importJson}/>
         <section className="scan-panel" aria-label="Start a new audit">
           <div className="panel-title"><span className="pulse-icon">⌕</span><div><strong>Analyze any authorized website</strong><small>Paste an address to scan and get prioritized fixes, or import an OpenGEO JSON report</small></div><span className="scan-kicker">SAFE MODE</span></div>
-          <form className="scan-form" onSubmit={scan}><div className="input-main"><span>◎</span><input value={url} onChange={(e) => setUrl(e.target.value)} required type="text" inputMode="url" autoComplete="url" placeholder="your-website.com or https://your-website.com" aria-label="Website URL"/></div><select aria-label="Maximum pages" value={maxPages} onChange={(e) => setMaxPages(e.target.value)}><option value="1">1 page</option><option value="3">3 pages</option>{accessKey && <option value="5">5 pages</option>}</select><button type="submit" className="button-primary" disabled={busy || (!accessKey && !turnstileToken)}>{busy ? "Scanning…" : !accessKey && !turnstileToken ? "Verifying browser…" : "Analyze website ↗"}</button></form>
-          {!accessKey && <TurnstileChallenge onToken={setTurnstileToken} resetSignal={challengeReset} label="Public scans: complete the anti-bot check (3 pages maximum)"/>}
-      <details className="advanced"><summary>Server access settings <span>↗</span></summary><p>Public scans use Cloudflare Turnstile and daily usage limits, with no owner secret required. The owner API key remains available for trusted backend integrations or authorized extended scans.</p><input aria-label="Audit API key" type="password" placeholder="Private audit access key (not saved)" autoComplete="off" value={accessKey} onChange={(e) => setAccessKey(e.target.value)}/></details>
+          <form className="scan-form" onSubmit={scan}><div className="input-main"><span>◎</span><input value={url} onChange={(e) => setUrl(e.target.value)} required type="text" inputMode="url" autoComplete="url" placeholder="your-website.com or https://your-website.com" aria-label="Website URL"/></div><select aria-label="Maximum pages" value={maxPages} onChange={(e) => setMaxPages(e.target.value)}><option value="1">1 page</option><option value="3">3 pages</option>{accessKey && <option value="5">5 pages</option>}</select><button type="submit" className="button-primary" disabled={busy || (!accessKey && verification !== "verified")}>{busy ? "Scanning…" : !accessKey && verification !== "verified" ? "Verify browser first" : "Analyze website ↗"}</button></form>
+          {!accessKey && (verification === "verified" ?
+            <div className="verified-session">✓ Browser verified for this session · CAPTCHA hidden · Redis quotas still apply</div> :
+            <div className="verification-panel">
+              <div className="verification-title">{verification === "checking" ? "Checking existing browser session…" : verification === "verifying" ? "Verifying once with Cloudflare…" : "One browser verification required"}</div>
+              {verification === "needed" && <TurnstileChallenge onToken={verifyBrowser} resetSignal={challengeReset} label="Turnstile is shown only when needed; verification lasts up to 2 hours"/>}
+              {verificationError && <p role="alert" className="verification-error">{verificationError}</p>}
+            </div>)}
+      <details className="advanced"><summary>Server access settings <span>↗</span></summary><p>For personal use, enter your private owner key to bypass CAPTCHA (never share it). Public visitors verify once per browser session; all public scans still have daily quotas.</p><input aria-label="Audit API key" type="password" placeholder="Private audit access key (not saved)" autoComplete="off" value={accessKey} onChange={(e) => setAccessKey(e.target.value)}/></details>
         </section>
         {message && <div className="notice" role="status"><span>ⓘ</span>{message}<button type="button" onClick={() => setMessage("")} aria-label="Dismiss message">×</button></div>}
         {current ? <>
@@ -207,7 +247,7 @@ export default function Dashboard() {
           {view === "pages" && <section className="panel full-panel"><div className="toolbar"><div className="filter-tabs">{types.map((value)=><button key={value} className={typeFilter===value?"chosen":""} onClick={()=>setTypeFilter(value)}>{value === "all"?"All pages":value}</button>)}</div><input aria-label="Search pages" className="search-input" placeholder="Find URL or title…" value={search} onChange={(e)=>setSearch(e.target.value)}/></div><div className="table-wrap"><table><thead><tr><th>PAGE</th><th>TYPE</th><th>WORDS</th><th>ISSUES</th><th>CHECKS</th></tr></thead><tbody>{filteredPages.map((p,i)=>{const problems=p.checks.filter((x)=>["fail","warn"].includes(x.status)).length;return <tr key={p.url+i}><td><a href={p.url} target="_blank" rel="noopener noreferrer" title={p.url}>{p.title || shortUrl(p.url)} ↗</a><small>{shortUrl(p.url)}</small></td><td><span className="type-badge">{p.pageType || "other"}</span></td><td>{p.words ?? "—"}</td><td><span className={problems?"bad-number":"good-number"}>{problems}</span></td><td>{p.checks.length}</td></tr>})}</tbody></table></div>{!filteredPages.length&&<Empty title="No pages found" detail="Change your search term or page type filter."/>}</section>}
           {view === "history" && <section className="panel full-panel"><div className="panel-heading"><div><div className="overline">THIS DEVICE ONLY</div><h2>Saved audit snapshots</h2></div><button className="text-action danger-text" onClick={clearHistory}>Clear local history</button></div><div className="history-list">{reports.map((r)=><div className="history-row" key={reportKey(r)}><div className="history-indicator"/><div><strong>{new URL(r.target).hostname}</strong><p>{safeDate(r.scannedAt)} · {r.pages.length} pages · {r.summary?.warnings || 0} warnings</p></div><div className="history-score">{r.summary?.score ?? "—"}/100</div><button className="button-outline" onClick={()=>{setSelected(reportKey(r));setView("overview");}}>Open ↗</button></div>)}</div></section>}
         </> : <section className="panel welcome-panel"><div className="welcome-graphic"><span>◈</span><i/></div><div className="overline">GET STARTED</div><h2>Your search intelligence workspace is ready.</h2><p>Run an authorized website audit or import a JSON report generated with <code>node bin/geo.js</code>. The dashboard will organize checks, page types and trends into a readable workspace.</p><button className="button-primary" onClick={()=>inputFile.current?.click()}>↑ Import your first report</button></section>}
-        <footer className="footer"><span>OPEN<span className="accent-text">GEO</span> STUDIO <span className="footer-divider">/</span> v0.7.0</span><span>Evidence over estimates · Open source · MIT</span></footer>
+        <footer className="footer"><span>OPEN<span className="accent-text">GEO</span> STUDIO <span className="footer-divider">/</span> v0.8.0</span><span>Evidence over estimates · Open source · MIT</span></footer>
       </div>
     </main>
   </div>;

@@ -1,7 +1,7 @@
 {
   "name": "opengeo-audit-engine",
-  "version": "0.7.0",
-  "description": "OpenGEO public SEO/GEO scanner with GPT-6 Luna and Gemini fallback",
+  "version": "0.8.0",
+  "description": "OpenGEO SEO/GEO intelligence console — verified browser sessions, actionable diagnostics and AI with honest elapsed timer",
   "type": "module",
   "bin": {
     "opengeo": "./bin/geo.js"
@@ -9,7 +9,7 @@
   "scripts": {
     "test": "node --test",
     "audit": "node ./bin/geo.js",
-    "check": "node --check ./src/audit.js && node --check ./src/html.js && node --check ./src/network.js && node --check ./src/robots.js && node --check ./src/quality.js && node --check ./src/canonical.js && node --check ./src/schema.js && node --check ./src/renderer.js && node --check ./bin/geo.js && node --check ./lib/ai-evidence.js && node --check ./lib/ai-providers.js && node --check ./lib/ai-access.js && node --check ./app/api/ai/analyze/route.js && node --check ./lib/public-access.js && node --check ./app/api/audit/route.js",
+    "check": "node --check ./src/audit.js && node --check ./src/html.js && node --check ./src/network.js && node --check ./src/robots.js && node --check ./src/quality.js && node --check ./src/canonical.js && node --check ./src/schema.js && node --check ./src/renderer.js && node --check ./bin/geo.js && node --check ./lib/ai-evidence.js && node --check ./lib/ai-providers.js && node --check ./lib/ai-access.js && node --check ./app/api/ai/analyze/route.js && node --check ./lib/public-access.js && node --check ./app/api/audit/route.js && node --check ./lib/public-session.js && node --check ./lib/action-guidance.js && node --check ./app/api/public/session/route.js",
     "dev": "next dev",
     "build": "next build",
     "start": "next start"

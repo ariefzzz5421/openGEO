@@ -168,3 +168,10 @@ OpenGEO now offers two paths:
 Public requests enforce pinned public IPv4 DNS, same-site redirects, robots.txt, byte/time limits, fresh one-time Turnstile challenges, and global/per-IP daily quotas in Upstash Redis. An HMAC-signed scan receipt (15 minute lifetime) binds AI calls to the actual scan evidence. Target website JavaScript is never executed.
 
 OpenAI GPT-6 Luna is a paid API model. The model only explains technical audit findings, not measured Google rankings or live ChatGPT citations. Code is never automatically patched. See docs/dashboard.md for Vercel setup.
+
+
+## v0.8 — chosen OpenGEO identity and easier private-use workflow
+
+Uses the selected neon-lime OpenGEO G/globe mark as the dashboard's sidebar logo and browser favicon. Cloudflare anti-bot verification is now performed once per 2-hour server-signed browser session, rather than every public scan. Existing Redis daily quotas still apply. If this is a **personal-only tool**, turn off `OPEN_GEO_PUBLIC_ENABLED` and enter the owner secret under Server access settings to avoid CAPTCHA completely without allowing anonymous scans.
+
+Fix Advisor now shows a concrete **Confirm / Change / Verify** playbook and realistic expected outcome for every detected issue. AI analysis displays an honest elapsed timer, a non-guaranteed typical time range, and the actual completion duration. It doesn't infer Google indexing or AI search citations.
