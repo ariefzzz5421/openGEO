@@ -70,7 +70,8 @@ test("one valid audit receipt can be redeemed for AI once, without a second Turn
   };
   const validReceipt = signScanReceipt({target:"https://example.com/"}, env.OPEN_GEO_API_KEY);
   assert.equal(await redeemScanReceipt(validReceipt, {env,fetchImpl:fake}),true);
-  assert.deepEqual(commands[0][0].slice(0,2),["SET", commands[0][0][1]]);
+  assert.equal(commands[0][0][0],"SET");
+  assert.match(commands[0][0][1],/^opengeo:receipt-used:[0-9a-f]{64}$/);
   assert.equal(commands[0][0][3],"EX");
   assert.equal(commands[0][0][5],"NX");
   await assert.rejects(redeemScanReceipt(validReceipt,{env,fetchImpl:fake}), (e) => e.status === 409);
